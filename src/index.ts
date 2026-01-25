@@ -89,6 +89,22 @@ const DEFAULT_OPTIONS: Required<LilyletPluginOptions> = {
 };
 
 /**
+ * Check if language tag indicates playable mode
+ * e.g., "lyl.play", "lilylet.play"
+ */
+function parseLanguageTag(info: string, aliases: string[]): { isLilylet: boolean; isPlayable: boolean } {
+  const lower = info.toLowerCase();
+
+  // Check for .play suffix
+  if (lower.endsWith('.play')) {
+    const base = lower.slice(0, -5); // Remove ".play"
+    return { isLilylet: aliases.includes(base), isPlayable: true };
+  }
+
+  return { isLilylet: aliases.includes(lower), isPlayable: false };
+}
+
+/**
  * Escape HTML special characters
  */
 function escapeHtml(str: string): string {
@@ -154,19 +170,22 @@ async function renderLilylet(
 function renderLilyletSync(
   code: string,
   options: Required<LilyletPluginOptions>,
-  cache: Map<string, string>
+  cache: Map<string, string>,
+  playable: boolean = false
 ): string {
-  // Check cache first
-  const cached = cache.get(code);
+  // Check cache first (include playable flag in cache key)
+  const cacheKey = playable ? `play:${code}` : code;
+  const cached = cache.get(cacheKey);
   if (cached !== undefined) {
     return cached;
   }
 
   const { containerClass, includeSource } = options;
   const sourceAttr = includeSource ? ` data-source="${escapeHtml(code)}"` : '';
+  const playableAttr = playable ? ' data-playable' : '';
 
   // Return placeholder for async rendering
-  return `<div class="${containerClass}" data-lilylet-pending${sourceAttr}><code>${escapeHtml(code)}</code></div>`;
+  return `<div class="${containerClass}" data-lilylet-pending${playableAttr}${sourceAttr}><code>${escapeHtml(code)}</code></div>`;
 }
 
 /**
@@ -190,12 +209,13 @@ export function lilyletPlugin(md: MarkdownIt, options: LilyletPluginOptions = {}
   // Override fence renderer
   md.renderer.rules.fence = function(tokens, idx, mdOptions, env, self) {
     const token = tokens[idx];
-    const info = token.info.trim().toLowerCase();
+    const info = token.info.trim();
     const code = token.content.trim();
 
-    // Check if this is a lilylet block
-    if (opts.langAliases.includes(info)) {
-      return renderLilyletSync(code, opts, renderCache);
+    // Check if this is a lilylet block (with optional .play suffix)
+    const { isLilylet, isPlayable } = parseLanguageTag(info, opts.langAliases);
+    if (isLilylet) {
+      return renderLilyletSync(code, opts, renderCache, isPlayable);
     }
 
     // Fall back to original renderer
@@ -231,11 +251,14 @@ export async function prerender(
   const tokens = md.parse(content, {});
 
   for (const token of tokens) {
-    if (token.type === 'fence' && opts.langAliases.includes(token.info.trim().toLowerCase())) {
-      const code = token.content.trim();
-      const lilyletExt = (md as MarkdownIt & { lilylet?: { prerenderCode: (code: string) => Promise<string> } }).lilylet;
-      if (lilyletExt) {
-        await lilyletExt.prerenderCode(code);
+    if (token.type === 'fence') {
+      const { isLilylet } = parseLanguageTag(token.info.trim(), opts.langAliases);
+      if (isLilylet) {
+        const code = token.content.trim();
+        const lilyletExt = (md as MarkdownIt & { lilylet?: { prerenderCode: (code: string) => Promise<string> } }).lilylet;
+        if (lilyletExt) {
+          await lilyletExt.prerenderCode(code);
+        }
       }
     }
   }
