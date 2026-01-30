@@ -141,9 +141,18 @@ async function renderLilylet(
       return `<div class="${containerClass}" data-lilylet${sourceAttr}${meiAttr}></div>`;
     }
 
-    // Set Verovio options
+    // Calculate pageHeight based on measure count
+    const measureCount = doc.measures?.length || 1;
+    const basePageHeight = 2000;
+    const measuresPerPage = 20;
+    const pageHeight = Math.max(basePageHeight, Math.ceil(measureCount / measuresPerPage) * basePageHeight);
+
+    // Set Verovio options with dynamic pageHeight
     if (verovioToolkit.setOptions) {
-      verovioToolkit.setOptions(verovioOptions);
+      verovioToolkit.setOptions({
+        ...verovioOptions,
+        pageHeight,
+      });
     }
 
     // Load MEI data
