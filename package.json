@@ -1,6 +1,6 @@
 {
   "name": "@k-l-lambda/lilylet-markdown",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "Markdown-it plugin for rendering Lilylet music notation",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -35,7 +35,7 @@
   "author": "k.l.lambda",
   "license": "ISC",
   "dependencies": {
-    "@k-l-lambda/lilylet": "^0.1.29",
+    "@k-l-lambda/lilylet": "^0.1.30",
     "verovio": "^4.3.0"
   },
   "devDependencies": {
