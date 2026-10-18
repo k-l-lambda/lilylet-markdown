@@ -56,9 +56,13 @@ jobs:
 
       - name: Install dependencies
         if: steps.version-check.outputs.changed == 'true'
-        run: npm install
+        run: npm ci
 
-      # Note: npm publish will trigger prepublishOnly which runs build.
+      - name: Test package entry points and rendering
+        if: steps.version-check.outputs.changed == 'true'
+        run: npm test
+
+      # npm publish triggers prepack, which builds both module formats.
       # Trusted Publishing (OIDC) — no NODE_AUTH_TOKEN needed.
       - name: Publish to npm
         if: steps.version-check.outputs.changed == 'true'

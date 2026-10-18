@@ -17,18 +17,54 @@ npm install @k-l-lambda/lilylet-markdown
 
 ## Usage
 
+### CommonJS / Hexo
+
+`require()` returns the plugin function directly; no `.default` adapter is needed:
+
+```javascript
+const MarkdownIt = require('markdown-it');
+const lilylet = require('@k-l-lambda/lilylet-markdown');
+const md = new MarkdownIt().use(lilylet);
+// Named helpers also live on the function:
+const { prerender, initVerovio } = lilylet;
+```
+
+ES modules continue to use the default plugin and named helper exports:
+
+```javascript
+import lilylet, { prerender, initVerovio } from '@k-l-lambda/lilylet-markdown';
+```
+
+For Hexo's `hexo-renderer-markdown-it`, register the package directly:
+
+```yaml
+markdown:
+  plugins:
+    - '@k-l-lambda/lilylet-markdown'
+```
+
+Hexo must also pass Lilylet fences through its earlier syntax-highlighting
+stage. The plugin supplies markup, not a browser player: client-side engraving
+and audio playback still need a runtime.
+
+Both module formats contain the Lilylet parser and MEI encoder. Consumers do
+not load Lilylet's broad entry point, Lotus, or its unrelated decoder dependencies.
+Verovio is imported only when `initVerovio()` is called. ESM and CommonJS may
+coexist in one process without sharing a global parser registration.
+
 ### Basic Usage (Placeholder Mode)
 
-When no Verovio toolkit is provided, the plugin outputs placeholders with embedded MEI data for client-side rendering:
+Synchronous `md.render()` outputs placeholders containing the Lilylet source.
+Call `await prerender(md, content)` first to embed MEI without a Verovio toolkit:
 
 ```javascript
 import MarkdownIt from 'markdown-it';
-import lilyletPlugin from '@k-l-lambda/lilylet-markdown';
+import lilyletPlugin, { prerender } from '@k-l-lambda/lilylet-markdown';
 
 const md = new MarkdownIt();
 md.use(lilyletPlugin);
 
-const result = md.render(`
+const content = `
 # My Score
 
 \`\`\`lilylet
@@ -36,7 +72,9 @@ const result = md.render(`
 \\time 4/4
 c'4 d' e' f' | g'1
 \`\`\`
-`);
+`;
+await prerender(md, content);
+const result = md.render(content);
 ```
 
 Output:
@@ -116,6 +154,24 @@ Or using the short alias:
 c'4 d' e' f' | g'1
 ```
 ~~~
+
+For a playable score, use `lyl.play` or `lilylet.play` as the fence language.
+The plugin adds `data-playable`; your client runtime implements the controls
+and audio. This attribute is retained after pre-rendering as well.
+
+## Development
+
+```bash
+npm ci
+npm test
+npm pack
+```
+
+The build emits ESM, CommonJS, and corresponding TypeScript declarations into
+`lib/`. `prepack` builds these files before packing or publishing. The parser
+and encoder are bundled from a pinned Lilylet build dependency; the generated
+grammar is scoped locally to avoid collisions between entry points. No absolute
+build-machine paths are required by the distributed package.
 
 ## Client-side Rendering
 

@@ -121,7 +121,8 @@ function escapeHtml(str: string): string {
  */
 async function renderLilylet(
   code: string,
-  options: Required<LilyletPluginOptions>
+  options: Required<LilyletPluginOptions>,
+  playable = false
 ): Promise<string> {
   const { verovioToolkit, verovioOptions, containerClass, errorClass, includeSource } = options;
 
@@ -134,11 +135,12 @@ async function renderLilylet(
 
     // Build data attributes
     const sourceAttr = includeSource ? ` data-source="${escapeHtml(code)}"` : '';
+    const playableAttr = playable ? ' data-playable' : '';
     const meiAttr = ` data-mei="${escapeHtml(mei)}"`;
 
     // If no Verovio toolkit, return MEI for client-side rendering
     if (!verovioToolkit) {
-      return `<div class="${containerClass}" data-lilylet${sourceAttr}${meiAttr}></div>`;
+      return `<div class="${containerClass}" data-lilylet${playableAttr}${sourceAttr}${meiAttr}></div>`;
     }
 
     // Calculate pageHeight based on measure count and staff count
@@ -174,7 +176,7 @@ async function renderLilylet(
     // Render to SVG
     const svg = verovioToolkit.renderToSVG(1);
 
-    return `<div class="${containerClass}" data-lilylet${sourceAttr}${meiAttr}>${svg}</div>`;
+    return `<div class="${containerClass}" data-lilylet${playableAttr}${sourceAttr}${meiAttr}>${svg}</div>`;
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -241,10 +243,10 @@ export function lilyletPlugin(md: MarkdownIt, options: LilyletPluginOptions = {}
   };
 
   // Expose async render method for pre-rendering
-  (md as MarkdownIt & { lilylet: { prerenderCode: (code: string) => Promise<string> } }).lilylet = {
-    prerenderCode: async function(code: string): Promise<string> {
-      const result = await renderLilylet(code, opts);
-      renderCache.set(code, result);
+  (md as MarkdownIt & { lilylet: { prerenderCode: (code: string, playable?: boolean) => Promise<string> } }).lilylet = {
+    prerenderCode: async function(code: string, playable = false): Promise<string> {
+      const result = await renderLilylet(code, opts, playable);
+      renderCache.set(playable ? `play:${code}` : code, result);
       return result;
     }
   };
@@ -270,12 +272,12 @@ export async function prerender(
 
   for (const token of tokens) {
     if (token.type === 'fence') {
-      const { isLilylet } = parseLanguageTag(token.info.trim(), opts.langAliases);
+      const { isLilylet, isPlayable } = parseLanguageTag(token.info.trim(), opts.langAliases);
       if (isLilylet) {
         const code = token.content.trim();
-        const lilyletExt = (md as MarkdownIt & { lilylet?: { prerenderCode: (code: string) => Promise<string> } }).lilylet;
+        const lilyletExt = (md as MarkdownIt & { lilylet?: { prerenderCode: (code: string, playable?: boolean) => Promise<string> } }).lilylet;
         if (lilyletExt) {
-          await lilyletExt.prerenderCode(code);
+          await lilyletExt.prerenderCode(code, isPlayable);
         }
       }
     }
@@ -286,13 +288,13 @@ export async function prerender(
  * Initialize Verovio toolkit (helper function)
  */
 export async function initVerovio(): Promise<VerovioToolkit> {
-  const verovioModule = await import('verovio');
-  const verovio = verovioModule.default;
-  return new Promise((resolve) => {
-    verovio.module.onRuntimeInitialized = () => {
-      resolve(new verovio.toolkit() as unknown as VerovioToolkit);
-    };
-  });
+  // The factory resolves after WASM initialization, including repeated calls.
+  // Avoid the legacy singleton's onRuntimeInitialized callback race.
+  const [{ default: createModule }, { VerovioToolkit: Toolkit }] = await Promise.all([
+    import('verovio/wasm'),
+    import('verovio/esm'),
+  ]);
+  return new Toolkit(await createModule()) as unknown as VerovioToolkit;
 }
 
 // Default export
