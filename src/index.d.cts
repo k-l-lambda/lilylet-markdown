@@ -4,8 +4,8 @@ declare function plugin(md: MarkdownIt, options?: API.LilyletPluginOptions): voi
 declare namespace plugin {
   type LilyletPluginOptions = API.LilyletPluginOptions;
   type VerovioToolkit = API.VerovioToolkit;
-  const lilyletPlugin: typeof API.lilyletPlugin;
-  const prerender: typeof API.prerender;
+  const lilyletPlugin: typeof plugin;
+  function prerender(md: MarkdownIt, content: string, options?: LilyletPluginOptions): Promise<void>;
   const initVerovio: typeof API.initVerovio;
 }
 export = plugin;

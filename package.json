@@ -1,6 +1,6 @@
 {
   "name": "@k-l-lambda/lilylet-markdown",
-  "version": "0.1.61",
+  "version": "0.1.62",
   "description": "Markdown-it plugin for rendering Lilylet music notation",
   "main": "lib/index.cjs",
   "types": "lib/index.d.ts",
@@ -22,7 +22,7 @@
   ],
   "scripts": {
     "build": "tsc --emitDeclarationOnly && node scripts/build.mjs",
-    "test": "npm run build && node --test tests/entrypoints.test.mjs && npm run test:types",
+    "test": "npm run build && node --test tests/*.test.mjs && npm run test:types",
     "test:demo": "node tests/test.js",
     "prepack": "npm run build",
     "test:types": "tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 tests/types/require.cts tests/types/import.mts"
